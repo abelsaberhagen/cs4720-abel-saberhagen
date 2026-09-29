@@ -51,8 +51,7 @@ fun DetailActivity(modifier: Modifier) {
         Button(
             modifier = modifier,
             onClick = {
-                completed = false
-                )
+
             }
         ) {
             Text("Add Item")

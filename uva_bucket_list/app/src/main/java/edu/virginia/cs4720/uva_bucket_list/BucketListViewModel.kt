@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 class BucketListViewModel : ViewModel() {
-    val bucketItems = listOf(
+    val bucketItems = mutableListOf(
         BucketItem(1, "Finish homework", "2026-09-27", false, null),
         BucketItem(2, "Go grocery shopping", "2026-09-27", true, "2026-09-26"),
         BucketItem(3, "Clean bedroom", "2026-09-28", false, null),
@@ -47,7 +47,7 @@ class BucketListViewModel : ViewModel() {
         _uiState.update { currentList ->
 
             val newItem = BucketItem(
-                id = (currentList.maxOfOrNull { it.id } ?: 0) + 1,
+                id = currentList.size + 1,
                 item_name = itemName,
                 due_date = dueDate,
                 completed = false,
