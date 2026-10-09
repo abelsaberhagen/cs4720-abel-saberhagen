@@ -1,44 +1,41 @@
 package edu.virginia.cs4720.uva_bucket_list
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.focusModifier
-import androidx.compose.ui.platform.LocalContext
-import kotlin.getValue
-import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import edu.virginia.cs4720.uva_bucket_list.ui.theme.Uva_bucket_listTheme
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.selects.select
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -52,17 +49,15 @@ class CreateActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            // 2. Safely observe the state flow from the viewmode
-
-            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                // 3. Pass the list and the callback method signature
-                AddActivity(
-                    modifier = Modifier.padding(innerPadding),
-                    onAddItemClick = { name, date ->
-                        viewModel.addItem(name, date)
-                    }
-                )
-
+            Uva_bucket_listTheme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    AddActivity(
+                        modifier = Modifier.padding(innerPadding),
+                        onAddItemClick = { name, date ->
+                            viewModel.addItem(name, date)
+                        }
+                    )
+                }
             }
         }
     }
@@ -72,35 +67,29 @@ class CreateActivity : ComponentActivity() {
 fun AddActivity(
     modifier: Modifier,
     onAddItemClick: (String, String) -> Unit
-    ) {
-    val state = rememberTextFieldState()
+) {
+    val context = LocalContext.current
+    val nameState = rememberTextFieldState()
 
-    TextField(
-        state = state,
-        label = { Text("Enter Activity") },
-        modifier = modifier
-    )
+    // Control visibility of the dialog
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
 
-    // 1. Control visibility of the dialog
-    var showDatePicker by remember { mutableStateOf(false) }
+    // The picked date, formatted as yyyy-MM-dd (null until the user picks one)
+    var selectedDate by rememberSaveable { mutableStateOf<String?>(null) }
 
-    // 2. State to hold the picked date string (formatted as YYYY-MM-DD)
-    var selectedDateStr by remember { mutableStateOf("Select Due Date") }
-
-    // 3. Material 3 DatePicker State
     val datePickerState = rememberDatePickerState()
+
     if (showDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    val selectedMillis = datePickerState.selectedDateMillis
-                    if (selectedMillis != null) {
-                        // Format the timestamp nicely into YYYY-MM-DD
-                        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
-                            timeZone = TimeZone.getTimeZone("UTC") // Prevent timezone offset shift
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        // DatePicker returns UTC midnight, so format in UTC to avoid an off-by-one day
+                        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+                            timeZone = TimeZone.getTimeZone("UTC")
                         }
-                        selectedDateStr = formatter.format(Date(selectedMillis))
+                        selectedDate = formatter.format(Date(millis))
                     }
                     showDatePicker = false
                 }) {
@@ -117,29 +106,47 @@ fun AddActivity(
         }
     }
 
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        // Group the contents in the middle of the screen, both vertically and horizontally
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        TextField(
+            state = nameState,
+            label = { Text("Enter Activity") },
+            modifier = Modifier.fillMaxWidth()
+        )
 
-    Column {
-        Button(
-            modifier = modifier,
-            onClick = {
-                onAddItemClick("Go skiing", "2027-01-01")
-            }
+        OutlinedButton(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showDatePicker = true }
         ) {
-            Text("Add Item")
+            Text(selectedDate?.let { "Due: $it" } ?: "Select Due Date")
         }
 
-        val context = LocalContext.current
-        Button(
-            modifier = modifier,
-            onClick = {
-                val intent = Intent(context, MainActivity::class.java)
-                context.startActivity(intent)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                enabled = nameState.text.isNotBlank() && selectedDate != null,
+                onClick = {
+                    onAddItemClick(nameState.text.toString(), selectedDate.toString())
+                    val intent = Intent(context, MainActivity::class.java)
+                    (context as? Activity)?.finish()
+                }
+            ) {
+                Text("Add Item")
             }
-        ) {
-            Text("Cancel")
-        }
 
+            Button(
+                onClick = {
+                    val intent = Intent(context, MainActivity::class.java)
+                    (context as? Activity)?.finish()
+                }
+            ) {
+                Text("Cancel")
+            }
+        }
     }
 }
-
-
