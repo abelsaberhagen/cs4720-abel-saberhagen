@@ -2,7 +2,7 @@ Abel Saberhagen
 eug8xn
 
 AI Usage Notes:
-AI was used to create the FootballData class from the JSON, as I thought it would be a tedious task to perform myself. I also used AI to create some of the UI Compose elements as I thought that would also be a tedious task that wouldn't give me any new deep insights into Kotlin. I also used it to help me find the current date. When it came to finding the current week of the football season, it helped by finding the day of the week that the API switched weeks.
+AI was used to create the FootballData class from the JSON, as I thought it would be a tedious task to perform myself. I also used AI to create some of the UI Compose elements as I thought that would also be a tedious task that wouldn't give me any new deep insights into Kotlin. I also used it to help me find the current date. When it came to finding the current week of the football season, it helped by finding the day of the week that the API switched weeks. Claude was also used for the most recent commit, where I added some styling and fixed some syntax errors.
 
 Although AI was not used to fetch the data from the JSON and transfer it to the ViewModel, I did use this website and found it very helpful
 in guiding me through the process of using the data layer to fetch the API, and transfer it to the ViewModel, and then transfer it to the UI Compose: 
