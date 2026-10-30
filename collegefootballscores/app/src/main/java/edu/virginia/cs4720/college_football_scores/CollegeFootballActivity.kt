@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,7 +48,9 @@ import java.nio.file.WatchEvent
 
 
 class CollegeFootballActivity    : ComponentActivity() {
-    val viewModel: CollegeFootballViewModel by viewModels()
+    val viewModel: CollegeFootballViewModel by viewModels {
+        CollegeFootballViewModel.factory(this)
+    }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,9 +63,11 @@ class CollegeFootballActivity    : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     HomeScreen(
                         collegeFootballState,
+                        collegeFootballViewModel = viewModel,
                         userUiState = userUiState,
                         onConferenceChange = { viewModel.updateConference(it) },
                         onWeekChange = { viewModel.updateWeek(it) },
+                        onRefresh = { viewModel.getFootballData() },
                         modifier = Modifier.padding(innerPadding))
                 }
             }
@@ -73,33 +79,35 @@ class CollegeFootballActivity    : ComponentActivity() {
 @Composable
 fun HomeScreen(
     collegeFootballUiState: CollegeFootballUiState,
+    collegeFootballViewModel: CollegeFootballViewModel,
     userUiState: UserUiState,
     onConferenceChange: (String) -> Unit,
     onWeekChange: (String) -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (collegeFootballUiState) {
         is CollegeFootballUiState.Loading -> LoadingScreen(modifier = modifier.fillMaxSize())
         is CollegeFootballUiState.Success -> ResultScreen(
-            data = collegeFootballUiState.data.games.map {it},
+            data = collegeFootballUiState.data,
             settings = userUiState,
             onConferenceChange = onConferenceChange,
             onWeekChange = onWeekChange,
             modifier = modifier.fillMaxWidth()
         )
 
-        is CollegeFootballUiState.Error -> ErrorScreen( modifier = modifier.fillMaxSize())
+        is CollegeFootballUiState.Error -> ErrorScreen( modifier = modifier.fillMaxSize(), onRefresh)
     }
 }
 @Composable
 fun ResultScreen(
-    data: List<GameEntry>,
+    data: List<GameEntity>,
     settings: UserUiState,
     onConferenceChange : (String) -> Unit,
     onWeekChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier.fillMaxSize().padding(vertical = 8.dp).background(Color(60, 145, 55))) {
+    Column(modifier.fillMaxSize().padding(vertical = 8.dp).background(MaterialTheme.colorScheme.background)) {
         if (data.isEmpty()) {
             Box(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -109,9 +117,8 @@ fun ResultScreen(
                     text = "No Games This Week",
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
-                    fontSize = 24.sp,                       // Changes size // Makes text Italic or Normal
-                    fontWeight = FontWeight.Bold,           // Makes text Bold, Light, Thin, etc.
-                    fontFamily = FontFamily.SansSerif      // Uses built-in system fonts (Serif, SansSerif, etc.)
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
                 )
             }
         } else LazyColumn(
@@ -123,46 +130,26 @@ fun ResultScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, Color.White)
-                        .padding(8.dp)
+                        .border(1.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
                 ){
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
-                        Text(
-                            text = item.game.away.names.short,
-                            modifier = Modifier
-                                .then(
-                                    if(item.game.finalMessage == "FINAL") {
-                                        if (item.game.away.winner) {
-                                            Modifier.background(Color.Green)
-                                        } else {
-                                            Modifier.background(Color.Red)
-                                        }
-                                    } else {
-                                        Modifier
-                                    }
-                                )
+                        TeamName(
+                            name = item.awayName,
+                            isFinal = item.finalMessage == "FINAL",
+                            isWinner = item.awayWinner
                         )
                         Text(
                             text = "at",
                             modifier = Modifier
                         )
-                        Text(
-                            text = item.game.home.names.short,
-                            modifier = Modifier
-                                .then(
-                                if(item.game.finalMessage == "FINAL") {
-                                    if (item.game.home.winner) {
-                                        Modifier.background(Color.Green)
-                                    } else {
-                                        Modifier.background(Color.Red)
-                                    }
-                                } else {
-                                    Modifier
-                                }
-                            )
+                        TeamName(
+                            name = item.homeName,
+                            isFinal = item.finalMessage == "FINAL",
+                            isWinner = item.homeWinner
                         )
                     }
                     Row(
@@ -170,7 +157,9 @@ fun ResultScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
                         Text(
-                            text = item.game.away.score + " - " + item.game.home.score
+                            text = item.awayScore + " - " + item.homeScore,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                     Row(
@@ -178,7 +167,7 @@ fun ResultScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
                         Text(
-                            text = item.game.finalMessage
+                            text = item.finalMessage
                         )
                     }
                     Row(
@@ -186,23 +175,23 @@ fun ResultScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
 
-                        if (item.game.finalMessage == "") {
+                        if (item.finalMessage == "") {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                             ) {
                                 Text(
-                                    text = "Starts at " + item.game.startDate + " at " + item.game.startTime
+                                    text = "Starts at " + item.startDate + " at " + item.startTime
                                 )
                             }
                         }
-                        else if (item.game.finalMessage != "FINAL") {
+                        else if (item.finalMessage != "FINAL") {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                             ) {
                                 Text(
-                                    text = item.game.contestClock + " remaining"
+                                    text = item.contestClock + " remaining"
                                 )
                             }
                         }
@@ -259,6 +248,25 @@ fun ResultScreen(
     }
 }
 
+// Highlights the winner and loser of finished games using the theme's container colors
+@Composable
+fun TeamName(name: String, isFinal: Boolean, isWinner: Boolean) {
+    val (background, textColor) = when {
+        !isFinal -> Color.Transparent to MaterialTheme.colorScheme.onBackground
+        isWinner -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+    }
+    Text(
+        text = name,
+        color = textColor,
+        fontWeight = if (isFinal && isWinner) FontWeight.Bold else FontWeight.Normal,
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(background)
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    )
+}
+
 @Composable
 fun LoadingScreen(
     modifier: Modifier = Modifier
@@ -278,7 +286,10 @@ fun LoadingScreen(
 }
 
 @Composable
-fun ErrorScreen(modifier: Modifier = Modifier) {
+fun ErrorScreen(
+    modifier: Modifier = Modifier,
+    onRefresh: () -> Unit,
+    ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.Center,
@@ -288,6 +299,13 @@ fun ErrorScreen(modifier: Modifier = Modifier) {
             painter = painterResource(id = R.drawable.ic_connection_error), contentDescription = ""
         )
         Text(text = stringResource(R.string.loading_failed), modifier = Modifier.padding(16.dp))
+        Button(
+            onClick = {
+               onRefresh()
+            },
+        ) {
+            Text(text="Refresh")
+        }
     }
 }
 
