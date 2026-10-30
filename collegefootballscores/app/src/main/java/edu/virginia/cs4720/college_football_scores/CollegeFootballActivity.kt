@@ -46,7 +46,9 @@ import java.nio.file.WatchEvent
 
 
 class CollegeFootballActivity    : ComponentActivity() {
-    val viewModel: CollegeFootballViewModel by viewModels()
+    val viewModel: CollegeFootballViewModel by viewModels {
+        CollegeFootballViewModel.factory(this)
+    }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,9 +61,11 @@ class CollegeFootballActivity    : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     HomeScreen(
                         collegeFootballState,
+                        collegeFootballViewModel = viewModel,
                         userUiState = userUiState,
                         onConferenceChange = { viewModel.updateConference(it) },
                         onWeekChange = { viewModel.updateWeek(it) },
+                        onRefresh = { viewModel.getFootballData() },
                         modifier = Modifier.padding(innerPadding))
                 }
             }
@@ -73,27 +77,29 @@ class CollegeFootballActivity    : ComponentActivity() {
 @Composable
 fun HomeScreen(
     collegeFootballUiState: CollegeFootballUiState,
+    collegeFootballViewModel: CollegeFootballViewModel,
     userUiState: UserUiState,
     onConferenceChange: (String) -> Unit,
     onWeekChange: (String) -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (collegeFootballUiState) {
         is CollegeFootballUiState.Loading -> LoadingScreen(modifier = modifier.fillMaxSize())
         is CollegeFootballUiState.Success -> ResultScreen(
-            data = collegeFootballUiState.data.games.map {it},
+            data = collegeFootballUiState.data,
             settings = userUiState,
             onConferenceChange = onConferenceChange,
             onWeekChange = onWeekChange,
             modifier = modifier.fillMaxWidth()
         )
 
-        is CollegeFootballUiState.Error -> ErrorScreen( modifier = modifier.fillMaxSize())
+        is CollegeFootballUiState.Error -> ErrorScreen( modifier = modifier.fillMaxSize(), onRefresh)
     }
 }
 @Composable
 fun ResultScreen(
-    data: List<GameEntry>,
+    data: List<GameEntity>,
     settings: UserUiState,
     onConferenceChange : (String) -> Unit,
     onWeekChange: (String) -> Unit,
@@ -131,11 +137,11 @@ fun ResultScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
                         Text(
-                            text = item.game.away.names.short,
+                            text = item.awayName,
                             modifier = Modifier
                                 .then(
-                                    if(item.game.finalMessage == "FINAL") {
-                                        if (item.game.away.winner) {
+                                    if(item.finalMessage == "FINAL") {
+                                        if (item.awayWinner) {
                                             Modifier.background(Color.Green)
                                         } else {
                                             Modifier.background(Color.Red)
@@ -150,11 +156,11 @@ fun ResultScreen(
                             modifier = Modifier
                         )
                         Text(
-                            text = item.game.home.names.short,
+                            text = item.homeName,
                             modifier = Modifier
                                 .then(
-                                if(item.game.finalMessage == "FINAL") {
-                                    if (item.game.home.winner) {
+                                if(item.finalMessage == "FINAL") {
+                                    if (item.homeWinner) {
                                         Modifier.background(Color.Green)
                                     } else {
                                         Modifier.background(Color.Red)
@@ -170,7 +176,7 @@ fun ResultScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
                         Text(
-                            text = item.game.away.score + " - " + item.game.home.score
+                            text = item.awayScore + " - " + item.homeScore
                         )
                     }
                     Row(
@@ -178,7 +184,7 @@ fun ResultScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
                         Text(
-                            text = item.game.finalMessage
+                            text = item.finalMessage
                         )
                     }
                     Row(
@@ -186,23 +192,23 @@ fun ResultScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
 
-                        if (item.game.finalMessage == "") {
+                        if (item.finalMessage == "") {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                             ) {
                                 Text(
-                                    text = "Starts at " + item.game.startDate + " at " + item.game.startTime
+                                    text = "Starts at " + item.startDate + " at " + item.startTime
                                 )
                             }
                         }
-                        else if (item.game.finalMessage != "FINAL") {
+                        else if (item.finalMessage != "FINAL") {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                             ) {
                                 Text(
-                                    text = item.game.contestClock + " remaining"
+                                    text = item.contestClock + " remaining"
                                 )
                             }
                         }
@@ -278,7 +284,10 @@ fun LoadingScreen(
 }
 
 @Composable
-fun ErrorScreen(modifier: Modifier = Modifier) {
+fun ErrorScreen(
+    modifier: Modifier = Modifier,
+    onRefresh: () -> Unit,
+    ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.Center,
@@ -288,6 +297,13 @@ fun ErrorScreen(modifier: Modifier = Modifier) {
             painter = painterResource(id = R.drawable.ic_connection_error), contentDescription = ""
         )
         Text(text = stringResource(R.string.loading_failed), modifier = Modifier.padding(16.dp))
+        Button(
+            onClick = {
+               onRefresh()
+            },
+        ) {
+            Text(text="Refresh")
+        }
     }
 }
 
