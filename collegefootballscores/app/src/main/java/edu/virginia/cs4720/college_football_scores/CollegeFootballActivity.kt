@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -105,7 +107,7 @@ fun ResultScreen(
     onWeekChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier.fillMaxSize().padding(vertical = 8.dp).background(Color(60, 145, 55))) {
+    Column(modifier.fillMaxSize().padding(vertical = 8.dp).background(MaterialTheme.colorScheme.background)) {
         if (data.isEmpty()) {
             Box(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -115,9 +117,8 @@ fun ResultScreen(
                     text = "No Games This Week",
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
-                    fontSize = 24.sp,                       // Changes size // Makes text Italic or Normal
-                    fontWeight = FontWeight.Bold,           // Makes text Bold, Light, Thin, etc.
-                    fontFamily = FontFamily.SansSerif      // Uses built-in system fonts (Serif, SansSerif, etc.)
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
                 )
             }
         } else LazyColumn(
@@ -129,46 +130,26 @@ fun ResultScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, Color.White)
-                        .padding(8.dp)
+                        .border(1.dp, MaterialTheme.colorScheme.onBackground, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
                 ){
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
-                        Text(
-                            text = item.awayName,
-                            modifier = Modifier
-                                .then(
-                                    if(item.finalMessage == "FINAL") {
-                                        if (item.awayWinner) {
-                                            Modifier.background(Color.Green)
-                                        } else {
-                                            Modifier.background(Color.Red)
-                                        }
-                                    } else {
-                                        Modifier
-                                    }
-                                )
+                        TeamName(
+                            name = item.awayName,
+                            isFinal = item.finalMessage == "FINAL",
+                            isWinner = item.awayWinner
                         )
                         Text(
                             text = "at",
                             modifier = Modifier
                         )
-                        Text(
-                            text = item.homeName,
-                            modifier = Modifier
-                                .then(
-                                if(item.finalMessage == "FINAL") {
-                                    if (item.homeWinner) {
-                                        Modifier.background(Color.Green)
-                                    } else {
-                                        Modifier.background(Color.Red)
-                                    }
-                                } else {
-                                    Modifier
-                                }
-                            )
+                        TeamName(
+                            name = item.homeName,
+                            isFinal = item.finalMessage == "FINAL",
+                            isWinner = item.homeWinner
                         )
                     }
                     Row(
@@ -176,7 +157,9 @@ fun ResultScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                     ) {
                         Text(
-                            text = item.awayScore + " - " + item.homeScore
+                            text = item.awayScore + " - " + item.homeScore,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                     Row(
@@ -263,6 +246,25 @@ fun ResultScreen(
             }
         }
     }
+}
+
+// Highlights the winner and loser of finished games using the theme's container colors
+@Composable
+fun TeamName(name: String, isFinal: Boolean, isWinner: Boolean) {
+    val (background, textColor) = when {
+        !isFinal -> Color.Transparent to MaterialTheme.colorScheme.onBackground
+        isWinner -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+    }
+    Text(
+        text = name,
+        color = textColor,
+        fontWeight = if (isFinal && isWinner) FontWeight.Bold else FontWeight.Normal,
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(background)
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    )
 }
 
 @Composable
